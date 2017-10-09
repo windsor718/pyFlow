@@ -127,8 +127,8 @@ class flow:
 
         #Directory
         self.srcDir   = "/data4/yuta/flowApi/src"
-        self.shedsDir = "/data3/yuta/CaMa-Flood_v3.6.2_20140909/FLOW/data/japan_6sec"
-        self.outDir   = "/data4/yuta/flowApi/test"
+        self.shedsDir = "/home/yamadai/work/FLOW/data/sheds_0.005_140701/"
+        self.outDir   = "/data4/yuta/flowApi/test_cal005"
 
         self.dataDir  = os.path.join(self.outDir,"data")
         self.mapDir   = os.path.join(self.outDir,"map")
@@ -137,29 +137,30 @@ class flow:
         self.hiresDir = os.path.join(self.mapDir,"hires")
 
         #Domain to construct river network
-        self.north    = 50.
-        self.south    = 20.
-        self.west     = 120.
-        self.east     = 150.
-        self.gSize    = 0.01 #network resolution
+        self.north    = 42.
+        self.south    = 32.
+        self.west     = -125.
+        self.east     = -114.
+        self.gSize    = 0.05 #network resolution
 
         #Your input runoff information
-        self.northIn  = 90
-        self.southIn  = -90
-        self.westIn   = -180
-        self.eastIn   = 180
-        self.gSizeIn  = 1. #input resolution
+        self.northIn  = 42.
+        self.southIn  = 32.
+        self.westIn   = -125.
+        self.eastIn   = -114.
+        self.gSizeIn  = 0.05 #input resolution
 
-        self.latOrder = "NtoS" #latitude order
-        self.diminfo  = "diminfo_1deg.txt" #name of diminfo, should represent input resolution.
-        self.inpmat   = "inpmat-1deg" #name of inpmat, should represent input resolution.
+        self.latOrder = "StoN" #latitude order
+        self.diminfo  = "diminfo_cal1km.txt" #name of diminfo, should represent input resolution.
+        self.inpmat   = "inpmat-cal1km" #name of inpmat, should represent input resolution.
 
         self.main()
-
-        refDir = "/data3/yuta/CaMa-Flood_v3.6.2_20140909/FLOW/jpn_5km/map/"
+        return True
+        """
+        refDir = "/data3/yuta/CaMa-Flood_v3.6.2_20140909/FLOW/jpn_1km/map/"
         FILES  = ["basin.bin","bsncol.bin","elevtn.bin","fldhgt.bin","grarea.bin","inpmat-1deg.bin",\
                   "lonlat.bin","lsmask.bin","nextxy.bin","nxtdst.bin","rivlen.bin","rivseq.bin","uparea.bin"]
-
+        
         FLAGS  = []
         for file in FILES:
             print file
@@ -206,6 +207,7 @@ class flow:
         else:
             print "failed"
             return False
+        """
 
 if __name__ == "__main__":
     chunk = flow()
