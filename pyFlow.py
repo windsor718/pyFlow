@@ -10,7 +10,7 @@ class flow:
     flow python interface.
     """
     def __init__(self):
-        #Directory
+        # Directory
         self.srcDir   = "/path/to/srcCode/"
         self.shedsDir = "/path/to/sheds/"
         self.outDir   = "/path/to/outputs/"
@@ -21,14 +21,14 @@ class flow:
         self.shedsLnk = os.path.join(self.outDir,"sheds")
         self.hiresDir = os.path.join(self.mapDir,"hires")
 
-        #Domain to construct river network
+        # Domain to construct river network
         self.north    = 0.
         self.south    = 0.
         self.west     = 0.
         self.east     = 0.
         self.gSize    = 1. #network resolution
 
-        #Your input runoff information
+        # Your input runoff information
         self.northIn  = 0.
         self.southIn  = 0.
         self.westIn   = 0.
@@ -36,8 +36,31 @@ class flow:
         self.gSizeIn  = 1. #input resolution
 
         self.latOrder = "StoN/NtoS" #latitude order
-        self.diminfo  = "diminfo_30min.txt" #name of diminfo, should represent input resolution.
-        self.inpmat   = "inpmat-30min" #name of inpmat, should represent input resolution.
+        self.diminfo  = "diminfo_Reg.InpRes.txt" #name of diminfo, with which should represent input resolution.
+        self.inpmat   = "inpmat_Reg.InpRes" #name of inpmat, with which should represent input resolution. No need to specify extention.
+
+        # empirical deriveation of river width and height.
+        ## Climatology info. for empirical equation.
+        self.climRnof     = "/path/to/RunoffClimatology"
+        self.climN        = 0.
+        self.climS        = 0.
+        self.climE        = 0.
+        self.climW        = 0.
+        self.climGSize    = 1. # runoff climatology resolution
+
+        self.climLatOrder = "StoN/NtoS" 
+        self.climDiminfo  = "diminfo_Reg.InpRes.txt" #name of diminfo, with which should represent input resolution.
+        self.climInpmat   = "inpmat_Reg.InpRes" #name of inpmat, with which should represent input resolution. No need to specify extention.
+
+        ## parameters for empirical equation
+        self.HC           = 0.14
+        self.HP           = 0.40
+        self.HMIN         = 2.00
+
+        self.WC           = 0.40
+        self.WP           = 0.75
+        self.WMIN         = 10.0
+
 
 
     def setDirs(self):
@@ -67,15 +90,10 @@ class flow:
         print "[building river networks]"
         print "reading Sheds location.txt..."
         subprocess.call(["cp",os.path.join(self.shedsDir,"location.txt"),os.path.join(self.hiresDir,"location.txt")])
-#        location = pd.read_csv(os.path.join(self.hiresDir,"location.txt"),skipinitialspace=True,delimiter=" ",index_col=0,header=-1)
         L = [l.strip().split() for l in open(os.path.join(self.hiresDir,"location.txt"))]
         class dummy:pass
         location = dummy()
         location.loc = dict( (l[0],l[1:]) for l in L)
-#        location.index.names = ["value name"]
-#        print   "="*80
-#        print   location
-#        print   "-"*75
 
         AREAS = location.loc["area"][:]
         narea    = len(AREAS)
@@ -105,10 +123,24 @@ class flow:
         subprocess.call(["cp",os.path.join(self.mapDir,"nxtdst.bin"),os.path.join(self.mapDir,"rivlen_grid.bin")])
 
 
-    def generateInpmat(self):
+    def generateInpmat(self,gSizeIn,westIn,eastIn,northIn,southIn,latOrder,inpmat,diminfo):
         print "[generating input matrix]"
         os.chdir(self.mapDir)
-        subprocess.call([os.path.join(self.srcDir,"generate_inpmat"),str(self.gSizeIn),str(self.westIn),str(self.eastIn),str(self.northIn),str(self.southIn),str(self.latOrder),self.inpmat+".bin",self.inpmat+".txt",self.diminfo])
+        subprocess.call([os.path.join(self.srcDir,"generate_inpmat"),str(gSizeIn),str(westIn),str(eastIn),str(northIn),str(southIn),str(latOrder),inpmat+".bin",inpmat+".txt",diminfo])
+
+
+    def calcEmpirical(self):
+        print "[calculating empirical parameters]"
+        os.chdir(self.mapDir)
+        outclm = "calc_outclm"
+        rivwth = "calc_rivwth"
+        clim   = self.climRnof.split("/")[-1]
+        print clim
+        subprocess.call(["cp", os.path.join(self.srcDir,outclm), "../"])
+        subprocess.call(["cp", os.path.join(self.srcDir,rivwth), "../"])
+        subprocess.call(["cp", self.climRnof, os.path.join(self.dataDir,clim)])
+        subprocess.call(["../calc_outclm", "bin", "inpmat", self.climDiminfo, self.climRnof])
+        subprocess.call(["../calc_rivwth", "bin", self.climDiminfo, str(self.HC), str(self.HP), str(self.HMIN), str(self.WC), str(self.WP), str(self.WMIN)])
 
 
     def writeCtl(self):
@@ -120,15 +152,18 @@ class flow:
     def main(self):
         self.setDirs()
         self.buildNetworks()
-        self.generateInpmat()
+        self.generateInpmat(self.gSizeIn,self.westIn,self.eastIn,self.northIn,self.southIn,self.latOrder,self.inpmat,self.diminfo)
+        self.generateInpmat(self.climGSize,self.climW,self.climE,self.climN,self.climS,self.climLatOrder,self.climInpmat,self.climDiminfo)
+        self.calcEmpirical()
         self.writeCtl()
+
 
     def test(self):
 
         #Directory
         self.srcDir   = "/data4/yuta/flowApi/src"
-        self.shedsDir = "/home/yamadai/work/FLOW/data/sheds_0.005_140701/"
-        self.outDir   = "/data4/yuta/flowApi/test_cal005"
+        self.shedsDir = "/home/yamadai/work/FLOW/data/sheds_0.005_140701"
+        self.outDir   = "/data4/yuta/HyHy/src/test/jpn1deg"
 
         self.dataDir  = os.path.join(self.outDir,"data")
         self.mapDir   = os.path.join(self.outDir,"map")
@@ -137,77 +172,36 @@ class flow:
         self.hiresDir = os.path.join(self.mapDir,"hires")
 
         #Domain to construct river network
-        self.north    = 42.
-        self.south    = 32.
-        self.west     = -125.
-        self.east     = -114.
-        self.gSize    = 0.05 #network resolution
+        self.north    = 46.
+        self.south    = 24.
+        self.west     = 123.
+        self.east     = 148.
+        self.gSize    = 0.1 #network resolution
 
         #Your input runoff information
-        self.northIn  = 42.
-        self.southIn  = 32.
-        self.westIn   = -125.
-        self.eastIn   = -114.
-        self.gSizeIn  = 0.05 #input resolution
+        self.northIn  = 90.
+        self.southIn  = -90.
+        self.westIn   = -180.
+        self.eastIn   = 180.
+        self.gSizeIn  = 0.25 #input resolution
 
-        self.latOrder = "StoN" #latitude order
-        self.diminfo  = "diminfo_cal1km.txt" #name of diminfo, should represent input resolution.
-        self.inpmat   = "inpmat-cal1km" #name of inpmat, should represent input resolution.
+        self.latOrder = "NtoS" #latitude order
+        self.diminfo  = "diminfo_glb05deg.txt" #name of diminfo, should represent input resolution.
+        self.inpmat   = "inpmat-glb05deg" #name of inpmat, should represent input resolution.
 
+        #Climatology information
+        self.climRnof     = "/data4/yuta/HyHy/CaMa-Flood_v3.6.2_20140909/map/data/runoff_1981-2000_day.bin"
+        self.climN        = 90.
+        self.climS        = -90.
+        self.climE        = 180.
+        self.climW        = -180.
+        self.climGsize    = 1. # runoff climatology resolution
+
+        self.climLatOrder = "NtoS"
+        self.climDiminfo  = "diminfo_glb1deg.txt" #name of diminfo, with which should represent input resolution.
+        self.climInpmat   = "inpmat_glb1deg" #name of inpmat, with which should represent input resolution. No need to specify extention.
         self.main()
         return True
-        """
-        refDir = "/data3/yuta/CaMa-Flood_v3.6.2_20140909/FLOW/jpn_1km/map/"
-        FILES  = ["basin.bin","bsncol.bin","elevtn.bin","fldhgt.bin","grarea.bin","inpmat-1deg.bin",\
-                  "lonlat.bin","lsmask.bin","nextxy.bin","nxtdst.bin","rivlen.bin","rivseq.bin","uparea.bin"]
-        
-        FLAGS  = []
-        for file in FILES:
-            print file
-            rslt2 = 0
-            if file == "nextxy.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.int32).reshape(2,3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.int32).reshape(2,3000,3000)
-            elif file == "inpmat-1deg.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.int32).reshape(3,4,3000,3000)[0:2]
-                refD = np.fromfile(os.path.join(refDir,file),np.int32).reshape(3,4,3000,3000)[0:2]
-
-                data2 = np.fromfile(os.path.join(self.mapDir,file),np.float32).reshape(3,4,3000,3000)[2]
-                refD2 = np.fromfile(os.path.join(refDir,file),np.float32).reshape(3,4,3000,3000)[2]
-                rslt2 = (data2 - refD2).sum()
-            elif file == "lsmask.bin" or file == "basin.bin" or file == "bsncol.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.int32).reshape(3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.int32).reshape(3000,3000)
-            elif file == "lonlat.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.float32).reshape(2,3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.float32).reshape(2,3000,3000)
-            elif file == "rivseq.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.int32).reshape(3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.int32).reshape(3000,3000)
-            elif file == "fldhgt.bin":
-                data = np.fromfile(os.path.join(self.mapDir,file),np.int32).reshape(10,3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.int32).reshape(10,3000,3000)
-            else:
-                data = np.fromfile(os.path.join(self.mapDir,file),np.float32).reshape(3000,3000)
-                refD = np.fromfile(os.path.join(refDir,file),np.float32).reshape(3000,3000)
-
-            rslt = (data - refD).sum() + rslt2
-            if rslt == 0.:
-                flag = True
-            else:
-                flag = False
-
-            FLAGS.append(flag)
-            print flag
-
-        if np.array(FLAGS).all() == True:
-            print "success"
-            print FLAGS
-            return True
-        else:
-            print "failed"
-            return False
-        """
 
 if __name__ == "__main__":
     chunk = flow()
